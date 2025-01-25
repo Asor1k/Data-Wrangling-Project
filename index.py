@@ -44,8 +44,8 @@ def show_renewable_energy_for_year(year, renewable_energy_share_data):
     ax.axis('off')
 
     # add a title
-    fig.text(0.2, 0.75, 'Has a doctor ever told you\nthat you had a cancer?',
-         fontsize=22, fontweight='bold', fontfamily='serif')
+    fig.text(0.05, 0.75, 'Renewable Energy Share \n            in Europe',
+         fontsize=18, fontweight='bold', fontfamily='serif')
 
 
     data_projected = data.to_crs(epsg=3035)

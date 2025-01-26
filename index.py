@@ -14,29 +14,22 @@ renewable_energy_share_file = 'renewable-share-energy.csv'
 greenhouse_emissions_data = pd.read_csv(greenhouse_file)
 renewable_energy_share_data = pd.read_csv(renewable_energy_share_file)
 
-
-def show_renewable_energy_for_year(year, renewable_energy_share_data):
-    # Filtering the data on the year to display on the map
-    renewable_energy_amount = renewable_energy_share_data[renewable_energy_share_data['Year'] == year]['Renewables (% equivalent primary energy)']
-    renewable_energy_countries = renewable_energy_share_data[renewable_energy_share_data['Year'] == year]['Entity']
-
-    re_df = pd.DataFrame({'Country': renewable_energy_countries, 'Renewables': renewable_energy_amount})
-
+def show_map(column_name, min_rate, max_rate, df, number_addition, colours, title):
     # Displaying the map
     world = gpd.read_file("./map/ne_110m_admin_0_countries.shp")
     europe = world[world['CONTINENT'] == 'Europe']
 
-    data = europe.merge(re_df, how='left', left_on='NAME', right_on='Country')
+    data = europe.merge(df, how='left', left_on='NAME', right_on='Country')
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     
     # define colors
-    cmap = cm.Greens
-    min_rate, max_rate = 0, 100
+    cmap = colours
+    min_rate, max_rate = min_rate, max_rate
     norm = mcolors.Normalize(vmin=min_rate, vmax=max_rate)
 
     # create the plot
-    data.plot(column='Renewables', cmap=cmap, norm=norm, ax=ax)
+    data.plot(column=column_name, cmap=cmap, norm=norm, ax=ax)
 
     # custom axis
     ax.set_xlim(-15, 35)
@@ -44,8 +37,8 @@ def show_renewable_energy_for_year(year, renewable_energy_share_data):
     ax.axis('off')
 
     # add a title
-    fig.text(0.05, 0.75, 'Renewable Energy Share \n            in Europe',
-         fontsize=18, fontweight='bold', fontfamily='serif')
+    fig.text(0.02, 0.78, title,
+         fontsize=16, fontweight='bold', fontfamily='serif')
 
 
     data_projected = data.to_crs(epsg=3035)
@@ -88,24 +81,51 @@ def show_renewable_energy_for_year(year, renewable_energy_share_data):
     for country in data['Country']:
         if country != country:
             continue
-        print(country)
         # get centroid
         centroid = data.loc[data['NAME'] == country, 'centroid'].values[0]
         x, y = centroid.coords[0]
 
-        # get corrections
-        x += adjustments[country][0]
-        y += adjustments[country][1]
+        if country in adjustments:
+            # get corrections
+            x += adjustments[country][0]
+            y += adjustments[country][1]
 
         # get rate and annotate
-        rate = round(data.loc[data['NAME'] == country, 'Renewables'].values[0], 2)
-        ax.annotate(f'{country} {rate}%', (x, y), textcoords="offset points", xytext=(5, 5),
+        rate = round(data.loc[data['NAME'] == country, column_name].values[0], 2)
+        ax.annotate(f'{country} {rate}{number_addition}', (x, y), textcoords="offset points", xytext=(5, 5),
                     ha='center', fontsize=5, fontfamily='DejaVu Sans', color='black')
 
     # display the plot
     plt.tight_layout()
     plt.show()
 
+def show_renewable_energy_for_year(year, renewable_energy_share_data):
+    # Filtering the data on the year to display on the map
+    renewable_energy_amount = renewable_energy_share_data[renewable_energy_share_data['Year'] == year]['Renewables (% equivalent primary energy)']
+    renewable_energy_countries = renewable_energy_share_data[renewable_energy_share_data['Year'] == year]['geo']
+
+    re_df = pd.DataFrame({'Country': renewable_energy_countries, 'Renewables': renewable_energy_amount})
+    show_map('Renewables', 0, 100, re_df, '%', cm.Greens, 'Renewable Energy Share in ' + str(year))
+
+def show_greenhouse_emissions_for_year(year, greenhouse_emissions_data):
+    # Filtering the data on the year to display on the map
+    greenhouse_emissions_amount = greenhouse_emissions_data[greenhouse_emissions_data['TIME_PERIOD'] == year]['OBS_VALUE']
+    greenhouse_emissions_countries = greenhouse_emissions_data[greenhouse_emissions_data['TIME_PERIOD'] == year]['geo']
+
+    max_emissions = greenhouse_emissions_amount.max()
+    min_emissions = greenhouse_emissions_amount.min()
+
+    ge_df = pd.DataFrame({'Country': greenhouse_emissions_countries, 'OBS_VALUE': greenhouse_emissions_amount})
+
+    show_map('OBS_VALUE', min_emissions, max_emissions, ge_df, ' tons', cm.Reds, f'Greenhouse Emissions in {year}')
 
 
-show_renewable_energy_for_year(2020, renewable_energy_share_data)
+
+year = 2020
+
+# Merging both data frames for easier access and filtering the countries. Some countries are not present in both data sets.
+merged_data = pd.merge(greenhouse_emissions_data, renewable_energy_share_data, left_on=['geo', 'TIME_PERIOD'], right_on=['Entity', 'Year'])
+
+show_renewable_energy_for_year(year, merged_data)
+
+show_greenhouse_emissions_for_year(year, merged_data)

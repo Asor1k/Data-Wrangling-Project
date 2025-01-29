@@ -14,7 +14,7 @@ renewable_energy_share_file = 'renewable-share-energy.csv'
 greenhouse_emissions_data = pd.read_csv(greenhouse_file)
 renewable_energy_share_data = pd.read_csv(renewable_energy_share_file)
 
-def show_map(column_name, min_rate, max_rate, df, number_addition, colours, title):
+def show_map(column_name, min_rate, max_rate, df, number_addition, colours, title, legend_name):
     # Displaying the map
     world = gpd.read_file("./map/ne_110m_admin_0_countries.shp")
     europe = world[world['CONTINENT'] == 'Europe']
@@ -37,9 +37,14 @@ def show_map(column_name, min_rate, max_rate, df, number_addition, colours, titl
     ax.axis('off')
 
     # add a title
-    fig.text(0.02, 0.78, title,
+    fig.text(0.02, 0.88, title,
          fontsize=16, fontweight='bold', fontfamily='serif')
 
+    # Add color legend
+    sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])  # Dummy array for colorbar
+    cbar = fig.colorbar(sm, ax=ax, orientation='vertical', fraction=0.02, pad=0.04)
+    cbar.set_label(f"{legend_name} ({number_addition})", fontsize=10)
 
     data_projected = data.to_crs(epsg=3035)
     data_projected['centroid'] = data_projected.geometry.centroid
@@ -93,7 +98,7 @@ def show_map(column_name, min_rate, max_rate, df, number_addition, colours, titl
         # get rate and annotate
         rate = round(data.loc[data['NAME'] == country, column_name].values[0], 2)
         ax.annotate(f'{country} {rate}{number_addition}', (x, y), textcoords="offset points", xytext=(5, 5),
-                    ha='center', fontsize=5, fontfamily='DejaVu Sans', color='black')
+                    ha='center', fontsize=5, fontweight='bold', fontfamily='DejaVu Sans', color='black')
 
     # display the plot
     plt.tight_layout()
@@ -105,7 +110,7 @@ def show_renewable_energy_for_year(year, renewable_energy_share_data):
     renewable_energy_countries = renewable_energy_share_data[renewable_energy_share_data['Year'] == year]['geo']
 
     re_df = pd.DataFrame({'Country': renewable_energy_countries, 'Renewables': renewable_energy_amount})
-    show_map('Renewables', 0, 100, re_df, '%', cm.Greens, 'Renewable Energy Share in ' + str(year))
+    show_map('Renewables', 0, 100, re_df, '%', cm.Greens, 'Renewable Energy Share in ' + str(year), "Renewable Energy Share")
 
 def show_greenhouse_emissions_for_year(year, greenhouse_emissions_data):
     # Filtering the data on the year to display on the map
@@ -117,14 +122,14 @@ def show_greenhouse_emissions_for_year(year, greenhouse_emissions_data):
 
     ge_df = pd.DataFrame({'Country': greenhouse_emissions_countries, 'OBS_VALUE': greenhouse_emissions_amount})
 
-    show_map('OBS_VALUE', min_emissions, max_emissions, ge_df, ' tons', cm.Reds, f'Greenhouse Emissions in {year}')
+    show_map('OBS_VALUE', min_emissions, max_emissions, ge_df, ' tons', cm.Reds, f'Greenhouse Emissions in {year}', "Emissions")
 
 
 
 year = 2020
 
 # Merging both data frames for easier access and filtering the countries. Some countries are not present in both data sets.
-merged_data = pd.merge(greenhouse_emissions_data, renewable_energy_share_data, left_on=['geo', 'TIME_PERIOD'], right_on=['Entity', 'Year'])
+merged_data = pd.merge(greenhouse_emissions_data, renewable_energy_share_data, how='outer', left_on=['geo', 'TIME_PERIOD'], right_on=['Entity', 'Year'])
 
 show_renewable_energy_for_year(year, merged_data)
 
